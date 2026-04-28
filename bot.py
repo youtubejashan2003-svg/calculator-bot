@@ -1,84 +1,88 @@
-import re
 import os
+import ast
+import operator as op
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 TOKEN = os.getenv("TOKEN")
 
-# /start (only DM)
+# safe operators
+ops = {
+    ast.Add: op.add,
+    ast.Sub: op.sub,
+    ast.Mult: op.mul,
+    ast.Div: op.truediv,
+    ast.Pow: op.pow,
+    ast.Mod: op.mod,
+    ast.USub: op.neg
+}
+
+# safe eval
+def safe_eval(expr):
+    def eval_node(node):
+        if isinstance(node, ast.Num):
+            return node.n
+        elif isinstance(node, ast.BinOp):
+            return ops[type(node.op)](eval_node(node.left), eval_node(node.right))
+        elif isinstance(node, ast.UnaryOp):
+            return ops[type(node.op)](eval_node(node.operand))
+        else:
+            raise Exception("Invalid")
+
+    return eval_node(ast.parse(expr, mode='eval').body)
+
+
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return
     await update.message.reply_text(
-        "🤖 Calculator Bot\n\n"
-        "Send any calculation:\n"
-        "• 1+1\n• 2*2\n• 10/2\n\n"
-        "⚡ Instant answer in groups & DM\n\n"
-        "ℹ️ /help for guide\n"
-        "👨‍💻 Developer - @tumlu"
+        "⚡ Calculator Bot\n\n"
+        "Send any math:\n"
+        "`10*1.5`  `0.002+0.01`\n\n"
+        "Fast • Simple • Powerful\n"
+        "ℹ️ /help",
+        parse_mode="Markdown"
     )
 
 # /help
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "📖 Usage Guide\n\n"
-        "Just send:\n"
-        "• 1+1 → 2\n"
-        "• 5-3 → 2\n"
-        "• 4*2 → 8\n"
-        "• 10/2 → 5\n\n"
-        "Works in groups too ✅\n\n"
-        "👨‍💻 Developer - @tumlu"
+        "📖 Usage:\n\n"
+        "`1+1`  `5-2`\n"
+        "`2*3`  `10/2`\n"
+        "`(2+3)*5`\n\n"
+        "Supports:\n"
+        "+  -  *  /  %  **\n\n"
+        "Works in groups ✅",
+        parse_mode="Markdown"
     )
 
-# Calculator
+# calculator
 async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
+    if not update.message or not update.message.text:
         return
 
-    text = update.message.text
-    if not text:
-        return
-
-    # clean text
-    text = text.replace(" ", "").split("@")[0]
-
-    match = re.match(r"^(-?\d+)([\+\-\*/])(-?\d+)$", text)
-    if not match:
-        return
-
-    num1, operator, num2 = match.groups()
-    num1, num2 = int(num1), int(num2)
+    text = update.message.text.replace(" ", "").split("@")[0]
 
     try:
-        if operator == "+":
-            result = num1 + num2
-            op = "+"
-        elif operator == "-":
-            result = num1 - num2
-            op = "-"
-        elif operator == "*":
-            result = num1 * num2
-            op = "×"
-        elif operator == "/":
-            result = num1 / num2
-            op = "÷"
+        result = safe_eval(text)
 
-        await update.message.reply_text(f"{num1} {op} {num2} = {result}")
+        # clean float output (like 5.0 → 5)
+        if isinstance(result, float) and result.is_integer():
+            result = int(result)
 
-    except:
-        pass
+        await update.message.reply_text(f"🧮 {text} = {result}")
 
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+    except Exception:
+        return  # ignore invalid messages
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_cmd))
 
-    # IMPORTANT (group + DM dono ke liye)
-    app.add_handler(MessageHandler(filters.TEXT, calculate))
+# run bot
+app = ApplicationBuilder().token(TOKEN).build()
 
-    app.run_polling()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("help", help_cmd))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, calculate))
 
-if __name__ == "__main__":
-    main()
+app.run_polling()
