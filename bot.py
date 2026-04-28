@@ -6,7 +6,6 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 
 TOKEN = os.getenv("TOKEN")
 
-# operators
 ops = {
     ast.Add: op.add,
     ast.Sub: op.sub,
@@ -17,7 +16,6 @@ ops = {
     ast.USub: op.neg
 }
 
-# safe eval
 def safe_eval(expr):
     def eval_node(node):
         if isinstance(node, ast.Num):
@@ -28,7 +26,6 @@ def safe_eval(expr):
             return ops[type(node.op)](eval_node(node.operand))
         else:
             raise Exception("Invalid")
-
     return eval_node(ast.parse(expr, mode='eval').body)
 
 
@@ -36,25 +33,29 @@ def safe_eval(expr):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return
+
+    name = update.effective_user.first_name
+
     await update.message.reply_text(
-        "⚡ Advanced Calculator\n\n"
-        "Try: 10*10\n"
-        "Supports: + - * / % ** ( )\n\n"
-        "ℹ️ /help\n"
-        "dev - @tumlu"
+        f"hallo, how are you ({name})\n\n"
+        "This bot using in your dm and group. instant reply light speed ✅\n\n"
+        "Use this command to use this bot /help\n\n"
+        "Developer: @tumlu ✅"
     )
+
 
 # /help
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "📖 Examples:\n\n"
+        "this bot use like 👇\n\n"
+        "Ex:\n"
+        "10+10\n"
         "10*10\n"
-        "1.5*10\n"
-        "(2+3)*5\n\n"
-        "Just send calculation.\n"
-        "Works everywhere ✅\n\n"
-        "dev - @tumlu"
+        "10/10\n"
+        "10-10\n\n"
+        "Just send calculation, bot will reply instantly ⚡"
     )
+
 
 # calculator
 async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -69,13 +70,12 @@ async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if isinstance(result, float) and result.is_integer():
             result = int(result)
 
-        await update.message.reply_text(f"{text} = ({result})")
+        await update.message.reply_text(f"{text} = {result}")
 
     except Exception:
         return
 
 
-# run bot
 app = ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
