@@ -6,7 +6,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 
 TOKEN = os.getenv("TOKEN")
 
-# safe operators
+# operators
 ops = {
     ast.Add: op.add,
     ast.Sub: op.sub,
@@ -37,25 +37,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return
     await update.message.reply_text(
-        "⚡ Calculator Bot\n\n"
-        "Send any math:\n"
-        "`10*1.5`  `0.002+0.01`\n\n"
-        "Fast • Simple • Powerful\n"
-        "ℹ️ /help",
-        parse_mode="Markdown"
+        "⚡ Advanced Calculator\n\n"
+        "Try: 10*10\n"
+        "Supports: + - * / % ** ( )\n\n"
+        "ℹ️ /help\n"
+        "dev - @tumlu"
     )
 
 # /help
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "📖 Usage:\n\n"
-        "`1+1`  `5-2`\n"
-        "`2*3`  `10/2`\n"
-        "`(2+3)*5`\n\n"
-        "Supports:\n"
-        "+  -  *  /  %  **\n\n"
-        "Works in groups ✅",
-        parse_mode="Markdown"
+        "📖 Examples:\n\n"
+        "10*10\n"
+        "1.5*10\n"
+        "(2+3)*5\n\n"
+        "Just send calculation.\n"
+        "Works everywhere ✅\n\n"
+        "dev - @tumlu"
     )
 
 # calculator
@@ -68,14 +66,13 @@ async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         result = safe_eval(text)
 
-        # clean float output (like 5.0 → 5)
         if isinstance(result, float) and result.is_integer():
             result = int(result)
 
-        await update.message.reply_text(f"🧮 {text} = {result}")
+        await update.message.reply_text(f"{text} = ({result})")
 
     except Exception:
-        return  # ignore invalid messages
+        return
 
 
 # run bot
