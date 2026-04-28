@@ -10,27 +10,38 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != "private":
         return
     await update.message.reply_text(
-        "🤖 Welcome to Calculator Bot!\n\n"
-        "🧮 Use like:\n"
-        "1+1\n2*2\n5-3\n10/2\n\n"
-        "📌 Operators: + - * /\n\n"
-        "Type /help for help.\n\n"
+        "🤖 Calculator Bot\n\n"
+        "Send any calculation:\n"
+        "• 1+1\n• 2*2\n• 10/2\n\n"
+        "⚡ Instant answer in groups & DM\n\n"
+        "ℹ️ /help for guide\n"
         "👨‍💻 Developer - @tumlu"
     )
 
 # /help
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "📖 Help Menu\n\n"
-        "Send simple calculations:\n\n"
-        "1+1\n2*2\n5-2\n10/5\n\n"
-        "Bot auto reply karega.\n\n"
+        "📖 Usage Guide\n\n"
+        "Just send:\n"
+        "• 1+1 → 2\n"
+        "• 5-3 → 2\n"
+        "• 4*2 → 8\n"
+        "• 10/2 → 5\n\n"
+        "Works in groups too ✅\n\n"
         "👨‍💻 Developer - @tumlu"
     )
 
 # Calculator
 async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.replace(" ", "")
+    if not update.message:
+        return
+
+    text = update.message.text
+    if not text:
+        return
+
+    # clean text
+    text = text.replace(" ", "").split("@")[0]
 
     match = re.match(r"^(-?\d+)([\+\-\*/])(-?\d+)$", text)
     if not match:
@@ -56,14 +67,17 @@ async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"{num1} {op} {num2} = {result}")
 
     except:
-        await update.message.reply_text("❌ Error")
+        pass
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
+
+    # IMPORTANT (group + DM dono ke liye)
     app.add_handler(MessageHandler(filters.TEXT, calculate))
+
     app.run_polling()
 
 if __name__ == "__main__":
