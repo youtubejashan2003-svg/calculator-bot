@@ -1,109 +1,126 @@
-import os
-import ast
-import operator as op
-import re
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import (
+ApplicationBuilder,
+CommandHandler,
+ContextTypes,
+)
+import requests
+import asyncio
 
-TOKEN = os.getenv("TOKEN")
+TOKEN = "8687375975:AAFGPyRcPInn3NhuSWf3zTybPkynn7QLEmQ"
 
-ops = {
-    ast.Add: op.add,
-    ast.Sub: op.sub,
-    ast.Mult: op.mul,
-    ast.Div: op.truediv,
-    ast.Pow: op.pow,
-    ast.Mod: op.mod,
-    ast.USub: op.neg
-}
+CHANNEL_ID = "@tonnprice"
 
-def safe_eval(expr):
-    def eval_node(node):
-        if isinstance(node, ast.Constant):
-            return node.value
-        elif isinstance(node, ast.BinOp):
-            return ops[type(node.op)](eval_node(node.left), eval_node(node.right))
-        elif isinstance(node, ast.UnaryOp):
-            return ops[type(node.op)](eval_node(node.operand))
-        else:
-            raise Exception("Invalid")
-    return eval_node(ast.parse(expr, mode='eval').body)
+interval = 60
+running = False
+last_price = None
 
+async def get_ton_price():
+url = "https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd"
 
-# ✅ STRICT CHECK (ONLY REAL EXPRESSIONS)
-def is_valid_expression(text):
-    # must contain operator
-    if not re.search(r"[+\-*/%]", text):
-        return False
+data = requests.get(url).json()
 
-    # only numbers + operators allowed
-    if not re.fullmatch(r"[0-9+\-*/%.() ]+", text):
-        return False
+return float(data["the-open-network"]["usd"])
 
-    return True
+async def auto_price(app):
+global running
+global interval
+global last_price
 
-
-# /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    name = update.effective_user.first_name
-
-    await update.message.reply_text(
-        f"Hello {name} 👋\n\n"
-        "⚡ Fast Calculator Bot\n"
-        "Works in DM & Groups\n\n"
-        "➡️ Send any math expression\n"
-        "Example: 2*2, 10+5, 100/4\n\n"
-        "Use /help for more info\n\n"
-        "👨‍💻 Developer: @tumlu"
-    )
-
-
-# /help
-async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "📌 How to use:\n\n"
-        "बस calculation भेजो 👇\n\n"
-        "✔ 10+10\n"
-        "✔ 5*6\n"
-        "✔ 100/4\n"
-        "✔ 9-3\n\n"
-        "❌ Invalid:\n"
-        "hello\n"
-        "100\n"
-        "abc123\n\n"
-        "Bot sirf valid math pe reply karega ⚡\n\n"
-        "👨‍💻 Developer: @tumlu"
-    )
-
-
-# calculator
-async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
-        return
-
-    text = update.message.text.replace(" ", "").split("@")[0]
-
-    # ❌ ignore invalid messages
-    if not is_valid_expression(text):
-        return
-
+while running:
     try:
-        result = safe_eval(text)
+        price = await get_ton_price()
 
-        if isinstance(result, float) and result.is_integer():
-            result = int(result)
+        if last_price is None:
+            status = "START ⚪"
 
-        await update.message.reply_text(f"{text} = {result}")
+        elif price > last_price:
+            status = "UPPER 📈"
 
-    except Exception:
-        return  # no spam reply
+        elif price < last_price:
+            status = "DOWN 📉"
 
+        else:
+            status = "SAME ⚪"
+
+        text = f"{price}$\n\n{status}"
+
+        await app.bot.send_message(
+            chat_id=CHANNEL_ID,
+            text=text
+        )
+
+        last_price = price
+
+    except Exception as e:
+        print(e)
+
+    await asyncio.sleep(interval)
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+await update.message.reply_text(
+"💎 Welcome To TON Price Bot\n\n"
+"This bot provides live TON price updates with market movement status.\n\n"
+"📈 UPPER\n"
+"📉 DOWN\n"
+"⚪ SAME\n\n"
+"Use /price to check current TON price.\n\n"
+"Join For Live Updates:\n"
+"@tonnprice\n\n"
+"👨‍💻 Developer: @tumlu"
+)
+
+async def run(update: Update, context: ContextTypes.DEFAULT_TYPE):
+global running
+
+if running:
+    return
+
+running = True
+
+context.application.create_task(
+    auto_price(context.application)
+)
+
+async def settime(update: Update, context: ContextTypes.DEFAULT_TYPE):
+global interval
+
+try:
+    sec = int(context.args[0])
+
+    interval = sec
+
+except:
+    pass
+
+async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
+global last_price
+
+price = await get_ton_price()
+
+if last_price is None:
+    status = "START ⚪"
+
+elif price > last_price:
+    status = "UPPER 📈"
+
+elif price < last_price:
+    status = "DOWN 📉"
+
+else:
+    status = "SAME ⚪"
+
+await update.message.reply_text(
+    f"{price}$\n\n{status}"
+)
 
 app = ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("help", help_cmd))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, calculate))
+app.add_handler(CommandHandler("run", run))
+app.add_handler(CommandHandler("settime", settime))
+app.add_handler(CommandHandler("price", price))
 
-print("Bot running...")
+print("Bot Running...")
+
 app.run_polling()
