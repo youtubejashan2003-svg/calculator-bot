@@ -1,126 +1,71 @@
+import re
+import os
 from telegram import Update
-from telegram.ext import (
-ApplicationBuilder,
-CommandHandler,
-ContextTypes,
-)
-import requests
-import asyncio
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = "8687375975:AAFGPyRcPInn3NhuSWf3zTybPkynn7QLEmQ"
+TOKEN = os.getenv("TOKEN")
 
-CHANNEL_ID = "@tonnprice"
-
-interval = 60
-running = False
-last_price = None
-
-async def get_ton_price():
-url = "https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd"
-
-data = requests.get(url).json()
-
-return float(data["the-open-network"]["usd"])
-
-async def auto_price(app):
-global running
-global interval
-global last_price
-
-while running:
-    try:
-        price = await get_ton_price()
-
-        if last_price is None:
-            status = "START ⚪"
-
-        elif price > last_price:
-            status = "UPPER 📈"
-
-        elif price < last_price:
-            status = "DOWN 📉"
-
-        else:
-            status = "SAME ⚪"
-
-        text = f"{price}$\n\n{status}"
-
-        await app.bot.send_message(
-            chat_id=CHANNEL_ID,
-            text=text
-        )
-
-        last_price = price
-
-    except Exception as e:
-        print(e)
-
-    await asyncio.sleep(interval)
-
+# /start (only DM)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-await update.message.reply_text(
-"💎 Welcome To TON Price Bot\n\n"
-"This bot provides live TON price updates with market movement status.\n\n"
-"📈 UPPER\n"
-"📉 DOWN\n"
-"⚪ SAME\n\n"
-"Use /price to check current TON price.\n\n"
-"Join For Live Updates:\n"
-"@tonnprice\n\n"
-"👨‍💻 Developer: @tumlu"
-)
+    if update.effective_chat.type != "private":
+        return
+    await update.message.reply_text(
+        "🤖 Welcome to Calculator Bot!\n\n"
+        "🧮 Use like:\n"
+        "1+1\n2*2\n5-3\n10/2\n\n"
+        "📌 Operators: + - * /\n\n"
+        "Type /help for help.\n\n"
+        "👨‍💻 Developer - @tumlu"
+    )
 
-async def run(update: Update, context: ContextTypes.DEFAULT_TYPE):
-global running
+# /help
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "📖 Help Menu\n\n"
+        "Send simple calculations:\n\n"
+        "1+1\n2*2\n5-2\n10/5\n\n"
+        "Bot auto reply karega.\n\n"
+        "👨‍💻 Developer - @tumlu"
+    )
 
-if running:
-    return
+# Calculator
+async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.replace(" ", "")
 
-running = True
+    match = re.match(r"^(-?\d+)([\+\-\*/])(-?\d+)$", text)
+    if not match:
+        return
 
-context.application.create_task(
-    auto_price(context.application)
-)
+    num1, operator, num2 = match.groups()
+    num1, num2 = int(num1), int(num2)
 
-async def settime(update: Update, context: ContextTypes.DEFAULT_TYPE):
-global interval
+    try:
+        if operator == "+":
+            result = num1 + num2
+            op = "+"
+        elif operator == "-":
+            result = num1 - num2
+            op = "-"
+        elif operator == "*":
+            result = num1 * num2
+            op = "×"
+        elif operator == "/":
+            result = num1 / num2
+            op = "÷"
 
-try:
-    sec = int(context.args[0])
+        await update.message.reply_text(f"{num1} {op} {num2} = {result}")
 
-    interval = sec
+    except:
+        await update.message.reply_text("❌ Error")
 
-except:
-    pass
+def main():
+    app = ApplicationBuilder().token(TOKEN).build()
 
-async def price(update: Update, context: ContextTypes.DEFAULT_TYPE):
-global last_price
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_cmd))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, calculate))
 
-price = await get_ton_price()
+    app.run_polling()
 
-if last_price is None:
-    status = "START ⚪"
-
-elif price > last_price:
-    status = "UPPER 📈"
-
-elif price < last_price:
-    status = "DOWN 📉"
-
-else:
-    status = "SAME ⚪"
-
-await update.message.reply_text(
-    f"{price}$\n\n{status}"
-)
-
-app = ApplicationBuilder().token(TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("run", run))
-app.add_handler(CommandHandler("settime", settime))
-app.add_handler(CommandHandler("price", price))
-
-print("Bot Running...")
-
-app.run_polling()
+if __name__ == "__main__":
+    main()
